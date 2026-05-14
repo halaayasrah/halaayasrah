@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import {
   LayoutDashboard, Upload, FolderOpen, User, ShieldCheck,
   BarChart2, BarChart3, Settings, LogOut
@@ -17,6 +18,12 @@ const navItems = [
 
 export default function Sidebar() {
   const navigate = useNavigate()
+  const { logout, user } = useAuth()
+
+  function handleLogout() {
+    logout()
+    navigate('/login')
+  }
 
   return (
     <aside className="w-60 flex flex-col bg-[#130b0e] border-r border-[rgba(232,93,117,0.1)] py-6 px-3">
@@ -53,14 +60,22 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Logout */}
-      <button
-        onClick={() => navigate('/dashboard')}
-        className="sidebar-link flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-400 mt-4 w-full border border-[rgba(232,93,117,0.15)] rounded-xl"
-      >
-        <LogOut size={18} />
-        Log Out
-      </button>
+      {/* User info + Logout */}
+      <div className="mt-4 space-y-2">
+        {user && (
+          <div className="px-4 py-2">
+            <p className="text-white text-xs font-medium truncate">{user.full_name || user.username}</p>
+            <p className="text-gray-500 text-[10px] truncate">{user.email}</p>
+          </div>
+        )}
+        <button
+          onClick={handleLogout}
+          className="sidebar-link flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-400 w-full border border-[rgba(232,93,117,0.15)] rounded-xl"
+        >
+          <LogOut size={18} />
+          Log Out
+        </button>
+      </div>
     </aside>
   )
 }
