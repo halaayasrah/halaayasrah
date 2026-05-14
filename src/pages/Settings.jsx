@@ -1,34 +1,64 @@
-import { useState } from 'react'
-import { Bell, Shield, Moon, Globe, Lock, Eye, EyeOff } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Bell, Shield, Moon, Globe, Lock, Eye, EyeOff, Loader } from 'lucide-react'
+import { api } from '../api'
 
 function Toggle({ value, onChange }) {
   return (
     <button
       onClick={() => onChange(!value)}
-      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${value ? 'bg-[#e85d75]' : 'bg-[#2a1820]'}`}
+      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+        value ? 'bg-[#e85d75]' : 'bg-[#2a1820]'
+      }`}
     >
       <span
-        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${value ? 'translate-x-5' : 'translate-x-0'}`}
+        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+          value ? 'translate-x-5' : 'translate-x-0'
+        }`}
       />
     </button>
   )
 }
 
 export default function Settings() {
-  const [settings, setSettings] = useState({
-    emailNotifications: true,
-    pushNotifications: false,
-    threatAlerts: true,
-    weeklyReport: true,
-    darkMode: true,
-    twoFactor: false,
-    autoScan: true,
-    language: 'English',
-  })
+  const [settings, setSettings] = useState(null)
+  const [saving, setSaving] = useState(false)
   const [showPass, setShowPass] = useState(false)
-  const [pass, setPass] = useState('')
 
-  const toggle = (k) => setSettings(prev => ({ ...prev, [k]: !prev[k] }))
+  useEffect(() => {
+    api.getSettings().then(setSettings).catch(console.error)
+  }, [])
+
+  const toggle = async (k) => {
+    const updated = { ...settings, [k]: !settings[k] }
+    setSettings(updated)
+    setSaving(true)
+    try {
+      await api.updateSettings({ [k]: updated[k] })
+    } catch {
+      setSettings(settings)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const changeLanguage = async (lang) => {
+    const updated = { ...settings, language: lang }
+    setSettings(updated)
+    try {
+      await api.updateSettings({ language: lang })
+    } catch {
+      setSettings(settings)
+    }
+  }
+
+  if (!settings) {
+    return (
+      <div className="max-w-2xl mx-auto py-4">
+        <h2 className="text-2xl font-bold text-white mb-6">Settings</h2>
+        <div className="card p-12 text-center text-gray-500">Loading settings...</div>
+      </div>
+    )
+  }
 
   const sections = [
     {
@@ -52,22 +82,25 @@ export default function Settings() {
     {
       title: 'Appearance',
       icon: Moon,
-      items: [
-        { key: 'darkMode', label: 'Dark Mode', desc: 'Use dark theme (recommended)' },
-      ],
+      items: [{ key: 'darkMode', label: 'Dark Mode', desc: 'Use dark theme (recommended)' }],
     },
   ]
 
   return (
     <div className="max-w-2xl mx-auto py-4">
-      <h2 className="text-2xl font-bold text-white mb-6">Settings</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-white">Settings</h2>
+        {saving && <Loader size={16} className="text-[#e85d75] animate-spin" />}
+      </div>
 
       <div className="space-y-6">
         {sections.map(({ title, icon: Icon, items }) => (
           <div key={title} className="card p-6">
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{ background: 'rgba(232,93,117,0.1)' }}>
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{ background: 'rgba(232,93,117,0.1)' }}
+              >
                 <Icon size={18} className="text-[#e85d75]" />
               </div>
               <h3 className="text-white font-semibold">{title}</h3>
@@ -86,11 +119,12 @@ export default function Settings() {
           </div>
         ))}
 
-        {/* Language */}
         <div className="card p-6">
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(232,93,117,0.1)' }}>
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center"
+              style={{ background: 'rgba(232,93,117,0.1)' }}
+            >
               <Globe size={18} className="text-[#e85d75]" />
             </div>
             <h3 className="text-white font-semibold">Language & Region</h3>
@@ -102,7 +136,7 @@ export default function Settings() {
             </div>
             <select
               value={settings.language}
-              onChange={e => setSettings(prev => ({ ...prev, language: e.target.value }))}
+              onChange={(e) => changeLanguage(e.target.value)}
               className="bg-[#2a1820] text-white text-sm px-3 py-2 rounded-lg border border-[rgba(232,93,117,0.2)] outline-none focus:border-[#e85d75]"
             >
               <option>English</option>
@@ -113,11 +147,12 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Change Password */}
         <div className="card p-6">
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(232,93,117,0.1)' }}>
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center"
+              style={{ background: 'rgba(232,93,117,0.1)' }}
+            >
               <Lock size={18} className="text-[#e85d75]" />
             </div>
             <h3 className="text-white font-semibold">Change Password</h3>
