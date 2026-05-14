@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
-import { Upload, File, X, CheckCircle, AlertCircle } from 'lucide-react'
+import { Upload, File, X, CheckCircle, AlertCircle, Loader } from 'lucide-react'
+import { api } from '../api'
 
 const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'text/plain',
   'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
@@ -7,6 +8,7 @@ const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'text/plain
 export default function UploadFiles() {
   const [files, setFiles] = useState([])
   const [dragOver, setDragOver] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const inputRef = useRef()
 
   const addFiles = (incoming) => {
@@ -35,12 +37,29 @@ export default function UploadFiles() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
+  async function handleUpload() {
+    const readyFiles = files.filter(f => f.status === 'ready')
+    setUploading(true)
+    const results = await Promise.allSettled(
+      readyFiles.map(f =>
+        api.uploadFile(f.file)
+          .then(r => ({ id: f.id, ok: r.ok }))
+          .catch(() => ({ id: f.id, ok: false }))
+      )
+    )
+    setFiles(prev => prev.map(f => {
+      const result = results.find(r => r.status === 'fulfilled' && r.value.id === f.id)
+      if (!result) return f
+      return { ...f, status: result.value.ok ? 'uploaded' : 'failed' }
+    }))
+    setUploading(false)
+  }
+
   return (
     <div className="max-w-2xl mx-auto py-4">
       <h2 className="text-2xl font-bold text-white mb-2">Upload Files</h2>
-      <p className="text-gray-400 mb-6">Upload your files for security scanning and analysis.</p>
+      <p className="text-gray-400 mb-6">Files are encrypted and stored securely in Zero-Vault.</p>
 
-      {/* Drop Zone */}
       <div
         className={`upload-zone flex flex-col items-center justify-center p-12 cursor-pointer text-center mb-6 ${dragOver ? 'drag-over' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -53,7 +72,7 @@ export default function UploadFiles() {
           <Upload size={28} className="text-[#e85d75]" />
         </div>
         <p className="text-white font-semibold text-lg mb-1">Drop files here or click to browse</p>
-        <p className="text-gray-500 text-sm">PDF, Images, Word documents, and text files up to 50MB</p>
+        <p className="text-gray-500 text-sm">PDF, Images, Word documents, and text files up to 10MB</p>
         <input
           ref={inputRef}
           type="file"
@@ -64,7 +83,6 @@ export default function UploadFiles() {
         />
       </div>
 
-      {/* File List */}
       {files.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-white font-semibold">Selected Files ({files.length})</h3>
@@ -78,10 +96,10 @@ export default function UploadFiles() {
                 <p className="text-white text-sm font-medium truncate">{f.name}</p>
                 <p className="text-gray-500 text-xs">{formatSize(f.size)}</p>
               </div>
-              {f.status === 'ready'
-                ? <CheckCircle size={18} className="text-green-400 shrink-0" />
-                : <AlertCircle size={18} className="text-red-400 shrink-0" />
-              }
+              {f.status === 'ready' && <CheckCircle size={18} className="text-green-400 shrink-0" />}
+              {f.status === 'error' && <AlertCircle size={18} className="text-yellow-400 shrink-0" title="File type not supported" />}
+              {f.status === 'uploaded' && <CheckCircle size={18} className="text-[#e85d75] shrink-0" title="Secured in vault" />}
+              {f.status === 'failed' && <AlertCircle size={18} className="text-red-400 shrink-0" title="Upload failed" />}
               <button onClick={() => remove(f.id)} className="text-gray-500 hover:text-red-400 transition-colors">
                 <X size={16} />
               </button>
@@ -90,12 +108,14 @@ export default function UploadFiles() {
 
           {files.some(f => f.status === 'ready') && (
             <button
-              className="btn-gradient w-full py-3 rounded-xl text-white font-semibold mt-4"
-              onClick={() => {
-                setFiles(prev => prev.map(f => f.status === 'ready' ? { ...f, status: 'uploaded' } : f))
-              }}
+              className="btn-gradient w-full py-3 rounded-xl text-white font-semibold mt-4 flex items-center justify-center gap-2 disabled:opacity-60"
+              disabled={uploading}
+              onClick={handleUpload}
             >
-              Upload {files.filter(f => f.status === 'ready').length} File(s)
+              {uploading
+                ? <><Loader size={16} className="animate-spin" /> Encrypting &amp; Uploading...</>
+                : `Secure Upload ${files.filter(f => f.status === 'ready').length} File(s) to Vault`
+              }
             </button>
           )}
         </div>
